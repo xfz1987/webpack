@@ -1,0 +1,14 @@
+.layer {
+  width: 600px;
+  height: 300px;
+  background-color: pink;
+}
+.layer > div {
+  width: 400px;
+  height: 100px;
+  background: url(../../image/2.png) no-repeat;
+  background-size: 400px 100px;
+}
+.flex {
+  display: flex;
+}

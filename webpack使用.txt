@@ -1,0 +1,343 @@
+* webpack 能把js和css合并到一个文件中，而且可以加载AMD、CMD资源模块
+* Gulp/Grunt是一种能够优化前端的开发流程的工具，而WebPack是一种模块化的解决方案，不过Webpack的优点使得Webpack可以替代Gulp/Grunt类的工具。
+  Grunt和Gulp的工作方式是：在一个配置文件中，指明对某些文件进行类似编译，组合，压缩等任务的具体步骤，这个工具之后可以自动替你完成这些任务。
+  Webpack的工作方式是：把你的项目当做一个整体，通过一个给定的主文件（如：index.js），Webpack将从这个文件开始找到你的项目的所有依赖文件，使用loaders处理它们，最后打包为一个浏览器可识别的JavaScript文件。
+
+********************************************************************************************
+
+* 原理
+  1. $ webpack a.js b.js main.js
+     把a.js、b.js整合到main.js中
+  2.module
+    //module.js
+    module.exports = 'It works from module.js'
+    //a.js
+    document.write('Hello webpack');
+    document.write(require('./module.js'));
+
+  执行1，打包，发现module.js被加载到main.js中了
+    Webpack 会分析入口文件，解析包含依赖关系的各个文件。这些文件（模块）都打包到 main.js 。
+    Webpack 会给每个模块分配一个唯一的 id 并通过这个 id 索引和访问模块。
+    在页面启动时，会先执行 a.js,b.js 中的代码， module.js require 的时候再执行
+
+********************************************************************************************
+
+* 安装
+  1.全局安装  cnpm install webpack -g
+  2.创建配置项  npm init  创建package.json
+  3.安装到项目的依赖中  cnpm install webpack --save-dev
+  *.查看安装情况  webpack -h
+
+********************************************************************************************
+
+* 运行webpack的几种方式: 命令
+  1. webpack
+  2. 修改package.json
+     scripts": {
+        "start": "webpack",
+        ........
+     }
+     运行命令start
+  3. scripts": {
+        "begin": "webpack",
+        ........
+     }
+     运行命令 npm run begin
+
+  4. 如果webpack.config.js 改为 config.js
+     运行命令 webpack --config config.js
+
+********************************************************************************************
+
+* 配置文件
+  1.配置package.json文件
+   "scripts": {
+     "test": "echo \"Error: no test specified\" && exit 1",
+     "webpack": "webpack --config config.js --progress --display-module --colors --display-reason --display-error-details"
+   }
+   运行命令时: npm run webpack
+  
+  ------------------------------------------------------------------------------------------------
+  
+  2.配置webpack.config.js
+    module.exports = {opt1,opt2,....,optn};
+
+    a. entry  源文件（入口文件）
+       * __dirname 是nodejs里的一个全局变量，它指向的是我们项目的根目录
+       单个入口文件
+       entry:__dirname+'/src/script/main.js',
+       多个入口文件
+       entry:[__dirname+'/src/script/main.js',__dirname+'/src/script/a.js'],
+
+    ------------------------------------------------------------------------------------------------
+    b. output 输出文件
+      output:{
+        //打包后的文件放置位置
+        path:__dirname+'/dist',
+        filename:'main.js'
+      }
+    
+    ------------------------------------------------------------------------------------------------
+    a+b. 多入口文件与多输出文件
+       entry:{
+          a: __dirname+'/src/script/a.js',
+          b: __dirname+'/src/script/b.js'
+       },
+       output:{
+          path:__dirname+'/dist',
+          // filename: '[name]-[hash].js' //这样打包出的文件的hash值都与本次打包的hash值一致
+          filename: 'js/[name]-[chunkhash].js',
+          //每个文件的hash值都不一样，并且与本次打包的hash值不不同，
+          //而且与上一次打包相比，只有发生改变的文件hash值才发生变化
+          //对于静态资源管理溢出多多
+          publicPath: 'http://my.com' //用于上线地址,这样引入的js地址就全在前面加上http://my.com/ 了
+       }
+
+    ------------------------------------------------------------------------------------------------
+    c. 使html文件的<script> 自动引入打包好的 [chunkhash]js文件
+       步骤: 
+           * 安装插件 npm install html-webpack-plugin --save-dev
+           * 修改配置文件
+             var Html = require('html-webpack-plugin'); 
+             module.exports = {
+                plugins: [
+                    new Html({
+                        filename: 'index.html',//生成的html文件
+                        template: __dirname+'/index.html',//index模板
+                        inject: 'head', //放在头部，body或不加这个选项默认放在body里，false
+                        title: 'webpack is good', // html标题获取参数
+                        date: new Date(),
+                        minify: {
+                          removeComments: true, //删除注释
+                          collapseWhitespace: true //删除空格
+                        }
+                    })
+                ]
+             }
+           * 模板html
+             删除要引入的script
+             <title><%= htmlWebpackPlugin.options.title %></title>
+             <p><%= htmlWebpackPlugin.options.date %></p>
+             
+             * 如果需要在head与body里面分别引用js
+               <head>
+                  <script type="text/javascript" src="<%=
+                      htmlWebpackPlugin.files.chunks.main.entry %>"></script>
+               </head>
+               <body>
+                  <script type="text/javascript" src="<%=
+                      htmlWebpackPlugin.files.chunks.a.entry %>"></script>
+               </body>
+
+    ------------------------------------------------------------------------------------------------
+    d. 多页面应用
+       多调用几次 html-webpack-plugin 插件
+       plugins: [
+          new Html({
+            filename: 'index.html',//生成html文件
+            template: __dirname+'/index.html',//index模板
+            inject: 'body', //放在头部，body或不加这个选项默认放在body里，false
+            title: 'webpack is good', //可以往html中传递参数
+            date: new Date(),
+                  minify: {
+                      removeComments: true, //删除注释
+                      collapseWhitespace: true //删除空格
+                  },
+                  chunks: ['main']//引入那些js
+          }),
+          new Html({
+            filename: 'a.html',
+            template: __dirname+'/index.html',
+            inject: 'body', 
+            title: 'this is a',
+            chunks: ['main','a']
+            
+          }),
+          new Html({
+            filename: 'b.html',
+            template: __dirname+'/index.html',
+            inject: 'body',
+            title: 'this is b',
+            excludeChunks: ['a','c'] //除了那些chunk，其他都被加载进来
+          }),
+          new Html({
+            filename: 'c.html',
+            template: __dirname+'/index.html',
+            inject: 'body',
+            title: 'this is c',
+            excludeChunks: ['a','b']
+          })
+      ]
+
+    ------------------------------------------------------------------------------------------------
+    e. 将部分初始js引入到代码中，节省请求
+       步骤1: 修改模板文件
+          <script type="text/javascript">
+            //因为配置的publicPath,所有要截取一下路径
+            //nodejs方法 compilation.assets[].source()获取文件中的内容
+            <%= compilation.assets[htmlWebpackPlugin.files.chunks.main.entry.substr(htmlWebpackPlugin.files.publicPath.length)].source() %>
+          </script>
+       结果: 发现代码被引入进去了，但是script标签多加了一个main的引入
+
+       步骤2: 修改配置文件
+          将inject 改为 false
+
+       步骤3: 修改模板
+               
+    ------------------------------------------------------------------------------------------------
+    f.给每个js打上个人标签(webpack自带插件)
+      var webpack = require('webpack');
+
+      plugins: [
+        new webpack.BannerPlugin('fuck your self')
+      ]
+
+    ------------------------------------------------------------------------------------------------
+* loader - 处理项目中的资源文件
+    (注意：以前的版本可以胜率loader,但现在必须是 XXX-loader)
+    1.babel-loader 转换ES6
+      * 安装loader npm install --save-dev babel-loader babel-core
+      * 指定要转化成JS的插件 npm install --save-dev babel-preset-latest
+                        或   npm install --save-dev babel-preset-es2015
+      * 修改配置文件
+        module: {
+          loaders: [
+            {
+              test: /\.js$/,
+              loader: 'babel',
+              query: {
+                presets: ['latest']
+              }
+            }
+          ]
+        }
+
+      * 发现babel非常缓慢，我们需要排除掉需要转换的文件，比如node_modules,
+        注意: exclude 与 include 使用绝对路径会加快打包速度,
+              与node自带的插件 path结合使用
+          loaders: [
+            {
+              test: /\.js$/,
+              loader: 'babel-loader',
+              include: path.resolve(__dirname,'src'),
+              exclude: path.resolve(__dirname,'node_modules'),//解析成绝对路径
+              query: {
+                presets: ['latest']
+              }
+            }
+          ]
+
+    --------------------------------------------------------------------------------------------
+    2.style-loder 、css-loader  处理css
+      * 安装  npm install css-loader style-loader --save-dev
+        (style-loader 使被打包到js文件的css生效,css-loader 可以将css文件打包到js文件中)
+        (loader可以用 ! 串联的，但是loader是从右向左开始解析，所以style-loader 要写在 css-loader前面)
+      * 配置文件
+        loaders: [
+          {
+            test: /\.css$/,
+            loader: 'style-loader!css-loader',
+          }
+        ]
+
+    --------------------------------------------------------------------------------------------
+    3.postcss-loader 自动给css增加前缀 -webkit-、-moz-
+      * 安装loader npm install postcss-loader --save-dev
+        安装插件   npm install autoprefixer --save-dev
+      * 配置文件
+        module: {
+          loaders: [
+            {
+              test: /\.css$/,
+              //loader: 'style-loader!css-loader!postcss-loader',
+              loaders: [
+                'style-loader','css-loader','postcss-loader'
+              ]
+            }
+          ]
+        },
+        /* Webpack 2.1.0-beta23 之后的config里不能直接包含自定义配置项
+        postcss: [
+          require('autoprefixer')({
+              broswers: ['last 5 versions']
+          })
+        ]*/
+
+        var autoprefixer = require('autoprefixer');
+
+        plugins: [
+          new webpack.LoaderOptionsPlugin({
+              options: {
+                postcss: function () {
+                  return [autoprefixer];
+                }
+              }
+          })
+        ]
+      
+      * 如果 css中 @import 另一个css，同时需要postcss来处理哪个css，怎么办呢？
+        * loader: 'style-loader!css-loader?importLoaders=1!postcss-loader'
+        * 给css-loader传参，importLoaders表示postcss需要分配一个loader来处理@import的css
+
+    --------------------------------------------------------------------------------------------
+    4.less-loader 处理less文件
+      * 安装 npm install less-loader --save-dev
+        如果npm全局没装less, 则 npm install less -g
+      * 配置文件
+        {
+          test: /\.less$/,
+          loader: 'style-loader!css-loader!postcss-loader!less-loader'
+        }
+
+      * 注意：
+        对于less 中 @import 另一个less时，不用传参，postcss会自动处理less的
+
+    --------------------------------------------------------------------------------------------
+    5.html-loader 处理模板文件
+      * 安装 npm install html-loader --save-dev
+      * 配置文件
+        {
+          test: /\.html$/,
+          loader: 'html-loader'
+        }
+      * 实际项目中，可能用到模板语法
+
+    --------------------------------------------------------------------------------------------
+    6. 处理图片文件
+      * 图片使用 主页模板文件 <img>
+                 组件模板文件 <img>
+                 css文件      background:url()
+      * file-loader
+        * 安装 npm install file-loader --save-dev
+          注意：主页模板文件与css文件中 src使用相对路径没问题，会被生成的图片替换
+                组件模板文件不能使用相对路径，应该使用绝对路径
+                如果非要使用相对路径，应该使用 ${require(相对路径)}
+
+      * url-loader 可以实现当图片大于一个limit值，webpack会自动将图片交给file-loader处理
+                   如果小于等于这个limit值，则直接转化成base64,插入到html或css中
+        * 安装 npm install url-loader --save-dev
+--------------------------------------------------------------------------------------------
+* 自动打包刷新浏览器
+  * 安装 npm install webpack-dev-server -g
+    * contentBase: 默认为根目录提供本地服务器，如果想为另一个目录下的文件提供本地服务器，应该在这里设置所在目录
+    * port: 默认8080
+    * inline: 设置true, 当源文件改变时浏览器自动刷新
+    * colors: 设置为true，输出文件为彩色
+    * historyApiFallback: 如果设置为true，所有跳转都指向index.html
+    * hot: 设置为true，热加载 
+  
+  * 启动前要重新打包一次
+    启动
+
+
+********************************************************************************************
+
+ * 提高构建速度
+   1.将大型库外链 
+   2.将库预先编译
+   3.减少构建搜索或编译路径
+   4.缓存
+   5.并行
+   6.Webpack中涉及路径配置最好使用绝对路径
+
+

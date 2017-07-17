@@ -1,0 +1,6 @@
+.flex-demo{
+	display: flex;
+}
+.clearfix{
+	clear:both;
+}
